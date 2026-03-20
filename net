@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+fatal() {
+  echo '[FATAL]' "$@" >&2
+  exit 1
+}
+
+command -v gum &>/dev/null || fatal 'gum not found'
+
+mapfile -s 2 -t lines < /proc/net/dev || fatal 'failed to read proc device'
+
+# collect interface names
+ifaces=()
+for line in "${lines[@]}"; do
+  iface="${line%%:*}"
+  iface="${iface// /}"
+  ifaces+=("$iface")
+done
+
+chosen=$(printf '%s\n' "${ifaces[@]}" | gum choose --header "Pick an interface:")
+[[ -z "$chosen" ]] && exit 0
+
+while true; do
+  clear
+  grep "${chosen}:" /proc/net/dev | tr -s ' ' | while IFS=' :' read -r _ iface rx_b rx_p _ _ _ _ _ _ tx_b tx_p _; do
+    gum style --border rounded --padding "1 2" \
+      "Interface : $iface
+RX bytes  : $rx_b  ($rx_p pkts)
+TX bytes  : $tx_b  ($tx_p pkts)"
+  done
+  sleep 1
+done
